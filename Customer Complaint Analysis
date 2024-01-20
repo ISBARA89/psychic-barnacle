@@ -1,0 +1,119 @@
+# Install and load necessary libraries
+install.packages(c("readr", "dplyr", "ggplot2", "plotly"))
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+
+# Load the dataset
+df <- read.csv("C:\\Users\\hp\\Downloads\\complaints.csv\\complaints.csv")
+
+# View the structure of the dataset
+str(df)
+
+# Summary statistics
+summary(df)
+
+# Check for missing values
+sum(is.na(df))
+
+# Handle missing values if needed
+df <- na.omit(df)
+
+# Convert variables to appropriate data types
+# Convert date variables to the Date type for analysis.
+df$Date.received <- as.Date(df$Date.received, format = "%Y-%m-%d")
+df$Date.sent.to.company <- as.Date(df$Date.sent.to.company, format = "%Y-%m-%d")
+
+# Identify numeric and date variables
+# Identify variables for EDA and further analysis.
+numeric_vars <- sapply(df, is.numeric)
+date_vars <- sapply(df, function(x) class(x) == "Date")
+
+# Extract a subset of the df with numeric and date variables
+numeric_df <- df[, numeric_vars | date_vars]
+
+# Create a random sample of the data (adjust sample size as needed)
+# Create a manageable random sample for exploratory analysis.
+set.seed(123)  # Set seed for reproducibility
+sample_df <- numeric_df[sample(nrow(numeric_df), 1000000), ]
+
+# Convert Date variables to numeric before applying jitter
+sample_df$numeric_received <- as.numeric(sample_df$Date.received)
+sample_df$numeric_sent <- as.numeric(sample_df$Date.sent.to.company)
+
+# Rename numeric_received and numeric_sent columns
+colnames(sample_df)[colnames(sample_df) == "numeric_received"] <- "Days_Between_Received_and_Sent"
+colnames(sample_df)[colnames(sample_df) == "numeric_sent"] <- "Days_Sent_to_Company"
+
+# Create an interactive pairwise scatterplot matrix
+# Visualize relationships between key date variables.
+scatter_matrix <- plot_ly(data = sample_df, 
+                          x = ~ jitter(Days_Between_Received_and_Sent), 
+                          y = ~ jitter(Days_Sent_to_Company), 
+                          type = "scatter", 
+                          mode = "markers",
+                          marker = list(size = 5, opacity = 0.5)) %>%
+  layout(title = "Interactive Pairwise Scatterplot Matrix",
+         xaxis = list(title = "Days Between Received and Sent"),
+         yaxis = list(title = "Days Sent to Company"))
+
+# Save the plot as an HTML file
+htmlwidgets::saveWidget(scatter_matrix, "scatterplot_matrix.html")
+
+# Open the HTML file in your browser
+browseURL("scatterplot_matrix.html")
+
+# Visualize distribution of Complaint.ID
+ggplot(sample_df, aes(x = Complaint.ID)) +
+  geom_histogram(binwidth = 10, fill = "blue", color = "black") +
+  ggtitle("Distribution of Complaint.ID") +
+  theme_minimal()
+
+# Summary statistics for numeric variables
+summary(sample_df[, c("Days_Between_Received_and_Sent", "Days_Sent_to_Company")])
+
+# Create a histogram for the distribution of Days_Between_Received_and_Sent
+ggplot(sample_df, aes(x = Days_Between_Received_and_Sent)) +
+  geom_histogram(binwidth = 10, fill = "blue", color = "black") +
+  ggtitle("Distribution of Days Between Received and Sent") +
+  theme_minimal()
+
+# Create a histogram for the distribution of Days_Sent_to_Company
+ggplot(sample_df, aes(x = Days_Sent_to_Company)) +
+  geom_histogram(binwidth = 10, fill = "blue", color = "black") +
+  ggtitle("Distribution of Days Sent to Company") +
+  theme_minimal()
+
+# Perform linear regression
+model <- lm(Days_Sent_to_Company ~ Days_Between_Received_and_Sent, data = sample_df)
+
+# Print regression summary
+# Understand the coefficients and significance.
+summary(model)
+
+# Create diagnostic plots
+plot(model, which = c(1, 3))
+influencePlot(model)
+qqnorm(resid(model))
+qqline(resid(model))
+
+# Calculate and display the correlation matrix
+# Assess the strength and direction of the relationship.
+cor_matrix <- cor(sample_df[, c("Days_Between_Received_and_Sent", "Days_Sent_to_Company")])
+print("Correlation Matrix:")
+print(cor_matrix)
+
+# Display diagnostic plots
+par(mfrow = c(2, 2))  # Set up a 2x2 grid for plots
+plot(model)
+
+# Additional Analyses:
+
+# Explore statistical tests beyond linear regression
+# Wilcoxon signed-rank test for non-normally distributed variables.
+wilcoxon_result <- wilcox.test(sample_df$Days_Between_Received_and_Sent, 
+                               sample_df$Days_Sent_to_Company, 
+                               paired = TRUE)
+print("Wilcoxon Signed-Rank Test:")
+print(wilcoxon_result)
